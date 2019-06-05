@@ -9,12 +9,17 @@ import time
 import torch
 from unityagents import UnityEnvironment
 
+import csv
+import copy
+import time
+
+
+# some globals we dont want to change
 N_EPISODES = 2000
 SOLVED_SCORE = 0.5
 CONSEC_EPISODES = 100
 PRINT_EVERY = 10
 ADD_NOISE = True
-
 
 
 
@@ -35,7 +40,7 @@ class Runner():
 
         self.agents = []
 
-        self.env = UnityEnvironment(file_name='Tennis_Linux/Tennis.x86_64')
+        self.env = UnityEnvironment(file_name='Tennis.app')
 
         # get the default brain
         self.brain_name = self.env.brain_names[0]
@@ -173,51 +178,50 @@ class Runner():
 
 
 ## Helper functions
-def get_hyperparams(**args):
+
+def get_hyperparams(**args) -> object:
     import itertools
-    for k, v in args.items():
-        print("%s = %s" % (k, v))
-
     param_list = []
-    param_list_dict = []
-    #print(arg[j] for j in range(len(arg))
-    print(args)
-    for i in itertools.product(args["n_episodes"], args["seeds"], args["lr_critic"], args["lr_actor"], args["learn_every"]):
-        param_list.append(i)
-    for config in param_list:
-        param_list_dict.append({"n_episodes":config[0], "seeds":config[1],
-                                "lr_critic":config[2], "lr_actor":config[3],
-                                "learn_every":config[4]} )
+    field_list = []
+    for k, v in args.items():
+        #print("%s = %s" % (k, v))
+        param_list.append(v)
+        field_list.append(k)
 
-    return param_list_dict
+    config_list = []
+    for i in itertools.product(*param_list):
+        config_list.append(dict(zip(field_list, i)))
+
+    return field_list, config_list
 
 
+############## running hyper parameter searching ######################
 
-episodes = [300]
-seeds=[1]
-lr_critic=[1e-3, 1e-4]
-lr_actor=[1e-3, 1e-4]
-learn_every= [1, 5]
+parameters = {"n_episodes" :[40],
+            "seeds":[1],
+            "lr_critic":[1e-3, 1e-4],
+            "lr_actor":[1e-3, 1e-4],
+            "learn_every": [1, 5],
+            "hidden_units": [256]
+              }
 
-hyper_configs = get_hyperparams(n_episodes=episodes,
-                                seeds=seeds,
-                                lr_critic=lr_critic,
-                                lr_actor=lr_actor,
-                                learn_every=learn_every)
+field_list, hyper_configs = get_hyperparams(**parameters)
+
+print("Hyper parameters in config", field_list)
+print("Nmber of configs: %d"%len(hyper_configs))
+
 
 
 scores = []
+
+# runner with default settings
 runner = Runner({})
 
-fieldnames = ["n_episodes", "seeds", "lr_critic", "lr_actor", "learn_every", "score"]
-
-import csv
-import copy
-import time
+field_list.append("score")
 
 with open('scan_report.csv', 'w', newline='') as csvfile:
 
-    writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+    writer = csv.DictWriter(csvfile, fieldnames=field_list)
 
     writer.writeheader()
 

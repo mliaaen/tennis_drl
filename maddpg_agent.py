@@ -49,6 +49,7 @@ class Agent():
         self.learn_num = config.get("learn_num", LEARN_NUM)
         self.gamma = config.get("gamma", GAMMA)
         self.tau = config.get("tau", TAU)
+        self.hidden_units = config.get("hidden_units", 256)
 
         self.state_size = state_size
         self.action_size = action_size
@@ -59,13 +60,13 @@ class Agent():
         self.timestep = 0
 
         # Actor Network (w/ Target Network)
-        self.actor_local = Actor(state_size, action_size, random_seed).to(device)
-        self.actor_target = Actor(state_size, action_size, random_seed).to(device)
+        self.actor_local = Actor(state_size, action_size, random_seed, fc1_units=self.hidden_units, fc2_units=self.hidden_units).to(device)
+        self.actor_target = Actor(state_size, action_size, random_seed ,fc1_units=self.hidden_units, fc2_units=self.hidden_units).to(device)
         self.actor_optimizer = optim.Adam(self.actor_local.parameters(), lr=self.lr_actor)
 
         # Critic Network (w/ Target Network)
-        self.critic_local = Critic(state_size, action_size, random_seed).to(device)
-        self.critic_target = Critic(state_size, action_size, random_seed).to(device)
+        self.critic_local = Critic(state_size, action_size, random_seed, fc1_units=self.hidden_units, fc2_units=self.hidden_units).to(device)
+        self.critic_target = Critic(state_size, action_size, random_seed, fc1_units=self.hidden_units, fc2_units=self.hidden_units).to(device)
         self.critic_optimizer = optim.Adam(self.critic_local.parameters(), lr=self.lr_actor, weight_decay=self.weight_decay)
 
         # Noise process
