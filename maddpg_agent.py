@@ -50,13 +50,18 @@ class Agent():
         self.gamma = config.get("gamma", GAMMA)
         self.tau = config.get("tau", TAU)
         self.hidden_units = config.get("hidden_units", 256)
+        self.ou_sigma = config.get("ou_sigma", OU_SIGMA)
+        self.ou_theta = config.get("ou_theta", OU_THETA)
+        self.eps_start = config.get("eps_start", EPS_START)
+        self.eps_ep_end = config.get("eps_end", EPS_EP_END)
+        self.eps_final = config.get("eps_end", EPS_FINAL)
 
         self.state_size = state_size
         self.action_size = action_size
         self.num_agents = num_agents
         self.seed = random.seed(random_seed)
-        self.eps = EPS_START
-        self.eps_decay = 1/(EPS_EP_END*LEARN_NUM)  # set decay rate based on epsilon end target
+        self.eps = self.eps_start
+        self.eps_decay = 1/(self.eps_ep_end*self.learn_num)  # set decay rate based on epsilon end target
         self.timestep = 0
 
         # Actor Network (w/ Target Network)

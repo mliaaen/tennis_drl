@@ -141,7 +141,6 @@ class Runner():
                 best_episode = i_episode
 
             # print results
-            print(i_episode)
             if i_episode % PRINT_EVERY == 0:
                 print('Episodes {:0>4d}-{:0>4d}\tMax Reward: {:.3f}\tMoving Average: {:.3f}'.format(
                     i_episode-PRINT_EVERY, i_episode, np.max(scores_all[-PRINT_EVERY:]), moving_average[-1]))
@@ -154,19 +153,19 @@ class Runner():
                         i_episode-CONSEC_EPISODES, moving_average[-1], CONSEC_EPISODES))
                     already_solved = True
                     # save weights
-                    torch.save(agent_0.actor_local.state_dict(), 'models/checkpoint_actor_0.pth')
-                    torch.save(agent_0.critic_local.state_dict(), 'models/checkpoint_critic_0.pth')
-                    torch.save(agent_1.actor_local.state_dict(), 'models/checkpoint_actor_1.pth')
-                    torch.save(agent_1.critic_local.state_dict(), 'models/checkpoint_critic_1.pth')
+                    torch.save(self.agents[0].actor_local.state_dict(), 'models/checkpoint_actor_0.pth')
+                    torch.save(self.agents[0].critic_local.state_dict(), 'models/checkpoint_critic_0.pth')
+                    torch.save(self.agents[1].actor_local.state_dict(), 'models/checkpoint_actor_1.pth')
+                    torch.save(self.agents[1].critic_local.state_dict(), 'models/checkpoint_critic_1.pth')
                 elif ep_best_score >= best_score:
                     print('<-- Best episode so far!\
                     \nEpisode {:0>4d}\tMax Reward: {:.3f}\tMoving Average: {:.3f}'.format(
                     i_episode, ep_best_score, moving_average[-1]))
                     # save weights
-                    torch.save(agent_0.actor_local.state_dict(), 'models/checkpoint_actor_0.pth')
-                    torch.save(agent_0.critic_local.state_dict(), 'models/checkpoint_critic_0.pth')
-                    torch.save(agent_1.actor_local.state_dict(), 'models/checkpoint_actor_1.pth')
-                    torch.save(agent_1.critic_local.state_dict(), 'models/checkpoint_critic_1.pth')
+                    torch.save(self.agents[0].actor_local.state_dict(), 'models/checkpoint_actor_0.pth')
+                    torch.save(self.agents[0].critic_local.state_dict(), 'models/checkpoint_critic_0.pth')
+                    torch.save(self.agents[1].actor_local.state_dict(), 'models/checkpoint_actor_1.pth')
+                    torch.save(self.agents[1].critic_local.state_dict(), 'models/checkpoint_critic_1.pth')
                 # stop training if model stops improving
                 elif (i_episode-best_episode) >= 200:
                     print('<-- Training stopped. Best score not matched or exceeded for 200 episodes')
@@ -197,15 +196,34 @@ def get_hyperparams(**args) -> object:
 
 ############## running hyper parameter searching ######################
 
-parameters = {"n_episodes" :[40],
+parameters_best = {"n_episodes" :[2000],
+              "seeds":[1],
+              " lr_critic":[1e-3],
+              "lr_actor":[1e-3],
+              "learn_every": [1],
+              "weight_deacy":[1],
+              "learn_num":[1],
+              "gamma":[0.99],
+              "tau":[7e-2],
+              "ou_sigma":[0.2],
+              "ou_theta":[0.12],
+              "eps_start":[5.5],
+              "eps_ep_end":[250],
+              "eps_ep_final":[0],
+
+              "hidden_units": [256]
+              }
+
+
+parameters = {"n_episodes" :[2000],
             "seeds":[1],
             "lr_critic":[1e-3, 1e-4],
             "lr_actor":[1e-3, 1e-4],
-            "learn_every": [1, 5],
-            "hidden_units": [256]
+            "learn_every": [5],
+            "hidden_units": [128]
               }
 
-field_list, hyper_configs = get_hyperparams(**parameters)
+field_list, hyper_configs = get_hyperparams(**parameters_best)
 
 print("Hyper parameters in config", field_list)
 print("Nmber of configs: %d"%len(hyper_configs))
@@ -213,6 +231,7 @@ print("Nmber of configs: %d"%len(hyper_configs))
 
 
 scores = []
+good_ones = []
 
 # runner with default settings
 runner = Runner({})
@@ -225,7 +244,10 @@ with open('scan_report.csv', 'w', newline='') as csvfile:
 
     writer.writeheader()
 
-    for config in hyper_configs:
+    for cnf_no, config in enumerate(hyper_configs):
+
+        if cnf_no not in good_ones and len(good_ones) > 0:
+            continue
 
         print("Now running with config:", config)
         best_score = runner.training_loop(config)
