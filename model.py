@@ -37,7 +37,7 @@ class Actor(nn.Module):
         use_bias = not use_batch_norm
 
         self.use_batch_norm = use_batch_norm
-        self.fc1 = nn.Linear(state_size*2, fc1_units, bias=use_bias)
+        self.fc1 = nn.Linear(state_size, fc1_units, bias=use_bias)
         self.fc2 = nn.Linear(fc1_units, fc2_units, bias=use_bias)
         self.fc3 = nn.Linear(fc2_units, action_size, bias=use_bias)
         self.reset_parameters()
@@ -81,7 +81,7 @@ class Critic(nn.Module):
             torch.manual_seed(seed)
 
         if use_batch_norm:
-            self.bn1 = nn.BatchNorm1d(state_size)
+            self.bn1 = nn.BatchNorm1d(state_size*2)
 
         # batch norm has bias included, disable linear layer bias
         use_bias = not use_batch_norm
@@ -99,12 +99,11 @@ class Critic(nn.Module):
         :return: q-values values
         """
 
-        #if self.use_batch_norm:
-        #    x = F.relu(self.fc1(self.bn1(state)))
-        #else:
-        #    )
+        if self.use_batch_norm:
+            x = F.relu(self.fc1(self.bn1(state)))
+        else:
+            x = F.relu(self.fc1(state))
 
-        x = F.relu(self.fc1(state))
         x = torch.cat((x, action), dim=1)
         #print(x.size())
         x = F.relu(self.fc2(x))

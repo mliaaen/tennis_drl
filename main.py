@@ -40,7 +40,8 @@ class Runner():
 
         self.agents = []
 
-        self.env = UnityEnvironment(file_name='Tennis.app')
+        self.env = UnityEnvironment(file_name="Tennis_Linux/Tennis.x86_64")
+        #self.env = UnityEnvironment(file_name="Tennis.app")
 
         # get the default brain
         self.brain_name = self.env.brain_names[0]
@@ -74,18 +75,20 @@ class Runner():
 
     def get_actions(self, states, add_noise):
         #print("get_actions", states, type(states), self.num_agents, self.action_size)
-        actions = [agent.act(states, add_noise) for agent in self.agents]
+        actions = [agent.act(states[i], add_noise) for i, agent in enumerate(self.agents)]
         # flatten action pairs into a single vector
-        #print("return actions", actions)
-        return np.reshape(actions, (1, self.num_agents*self.action_size))
+        actions = np.reshape(actions, (1, self.num_agents * self.action_size))
+        #print("return from get_actions", actions)
+        return actions
 
     def reset_agents(self):
         for agent in self.agents:
             agent.reset()
 
     def learning_step(self, states, actions, rewards, next_states, done):
+        print("learning step", states, next_states, rewards, done, actions)
         for i, agent in enumerate(self.agents):
-            agent.step(states, actions, rewards[i], next_states, done, i)
+            agent.step(states, actions, rewards, next_states, done, i)
 
     ## Training loop
 
@@ -111,17 +114,19 @@ class Runner():
 
         for i_episode in range(1, self.n_episodes+1):
             env_info = self.env.reset(train_mode=True)[self.brain_name]      # reset the environment
-            states = np.reshape(env_info.vector_observations, (1,self.num_agents*self.state_size)) # flatten states
+            #states = np.reshape(env_info.vector_observations, (1,self.num_agents*self.state_size)) # flatten states
+            states = env_info.vector_observations
             #print("joho",states, self.num_agents, self.state_size)
             self.reset_agents()
             scores = np.zeros(self.num_agents)
             while True:
                 actions = self.get_actions(states, ADD_NOISE)           # choose agent actions and flatten them
                 env_info = self.env.step(actions)[self.brain_name]           # send both agents' actions to the environment
-                next_states = np.reshape(env_info.vector_observations, (1, self.num_agents*self.state_size)) # flatten next states
+                #next_states = np.reshape(env_info.vector_observations, (1, self.num_agents*self.state_size)) # flatten next states
+                next_states = env_info.vector_observations
                 rewards = env_info.rewards                         # get rewards
                 done = env_info.local_done                         # see if the episode finished
-                #print("learning", next_states, actions, done)
+                print("learning next_states", next_states)
                 self.learning_step(states, actions, rewards, next_states, done)  # perform the learning step
                 scores += np.max(rewards)                          # update scores with best reward
                 states = next_states                               # roll over states to next time step
@@ -200,7 +205,7 @@ parameters_best = {"n_episodes" :[2000],
               "seeds":[1],
               " lr_critic":[1e-3],
               "lr_actor":[1e-3],
-              "learn_every": [1],
+              "learn_every": [10],
               "weight_deacy":[1],
               "learn_num":[1],
               "gamma":[0.99],

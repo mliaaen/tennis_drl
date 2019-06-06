@@ -55,6 +55,7 @@ class Agent():
         self.eps_start = config.get("eps_start", EPS_START)
         self.eps_ep_end = config.get("eps_end", EPS_EP_END)
         self.eps_final = config.get("eps_end", EPS_FINAL)
+        self.batch_norm = False
 
         self.state_size = state_size
         self.action_size = action_size
@@ -65,16 +66,24 @@ class Agent():
         self.timestep = 0
 
         # Actor Network (w/ Target Network)
-        self.actor_local = Actor(state_size, action_size, random_seed, fc1_units=self.hidden_units, fc2_units=self.hidden_units).to(device)
-        self.actor_target = Actor(state_size, action_size, random_seed ,fc1_units=self.hidden_units, fc2_units=self.hidden_units).to(device)
+        self.actor_local = Actor(state_size, action_size, random_seed, use_batch_norm=self.batch_norm,
+                                 fc1_units=self.hidden_units,
+                                 fc2_units=self.hidden_units).to(device)
+        self.actor_target = Actor(state_size, action_size, random_seed ,  use_batch_norm=self.batch_norm,
+                                  fc1_units=self.hidden_units, fc2_units=self.hidden_units).to(device)
         self.actor_optimizer = optim.Adam(self.actor_local.parameters(), lr=self.lr_actor)
 
         # Critic Network (w/ Target Network)
-        self.critic_local = Critic(state_size, action_size, random_seed, fc1_units=self.hidden_units, fc2_units=self.hidden_units).to(device)
-        self.critic_target = Critic(state_size, action_size, random_seed, fc1_units=self.hidden_units, fc2_units=self.hidden_units).to(device)
+        self.critic_local = Critic(state_size, action_size, random_seed, use_batch_norm=self.batch_norm,
+                                   fc1_units=self.hidden_units,
+                                   fc2_units=self.hidden_units).to(device)
+        self.critic_target = Critic(state_size, action_size, random_seed, use_batch_norm=self.batch_norm,
+                                    fc1_units=self.hidden_units,
+                                    fc2_units=self.hidden_units).to(device)
         self.critic_optimizer = optim.Adam(self.critic_local.parameters(), lr=self.lr_actor, weight_decay=self.weight_decay)
 
         # Noise process
+        #self.noise = OUNoise((1, action_size), random_seed)
         self.noise = OUNoise((num_agents, action_size), random_seed)
 
         # Replay memory
@@ -84,6 +93,7 @@ class Agent():
         """Save experience in replay memory, and use random sample from buffer to learn."""
         self.timestep += 1
         # Save experience / reward
+        #print("to memory", state, action, reward, next_state, done)
         self.memory.add(state, action, reward, next_state, done)
         # Learn, if enough samples are available in memory and at learning interval settings
         if len(self.memory) > self.batch_size and self.timestep % self.learn_every == 0:
@@ -93,23 +103,26 @@ class Agent():
 
     def act(self, states, add_noise):
         """Returns actions for both agents as per current policy, given their respective states."""
+        print(states.shape)
         states = torch.from_numpy(states).float().to(device)
         actions = np.zeros((self.num_agents, self.action_size))
-        #print("in act()", states, actions, self.num_agents, self.action_size)
+        print("in act()", states.size(), actions, self.num_agents, self.action_size)
         self.actor_local.eval()
         with torch.no_grad():
             # get action for each agent and concatenate them
-            for agent_num, state in enumerate(states):
+            #for agent_num, state in enumerate(states):
                 #print("hei", agent_num, state, states)
-                action = self.actor_local(state).cpu().data.numpy()
+                actions = self.actor_local(states).cpu().data.numpy()
                 #print("action", agent_num, action)
-                actions[agent_num, :] = action
+                #actions[agent_num, :] = action
         self.actor_local.train()
         # add noise to actions
+
         if add_noise:
-            actions += self.eps * self.noise.sample()
+            print(type(actions),actions, actions.shape, self.eps, self.noise.sample())
+        #    actions += self.eps * self.noise.sample()
         actions = np.clip(actions, -1, 1)
-        #print("act() return actions", actions)
+        print("act() return actions", actions, actions.shape)
         return actions
 
     def reset(self):
@@ -127,12 +140,18 @@ class Agent():
             gamma (float): discount factor
         """
         states, actions, rewards, next_states, dones = experiences
-        #print(next_states, next_states.size())
+        print("experiences", states.size(), actions.size(), rewards.size(), next_states.size(), dones.size())
 
         # ---------------------------- update critic ---------------------------- #
         # Get predicted next-state actions and Q values from target models
-        actions_next = self.actor_target(next_states)
+        #actions_next = self.actor_target(next_states[agent_number])
+        actions_next = self.actor_target(next_states[agent_number])
+        print("next_states", next_states[agent_number])
+        print("learning actions_next", actions_next)
+        print("learning actions", actions)
+        print("learning dones", dones)
         # Construct next actions vector relative to the agent
+        print("sized", actions.size(), actions_next.size())
         if agent_number == 0:
             actions_next = torch.cat((actions_next, actions[:,2:]), dim=1)
         else:
@@ -151,14 +170,14 @@ class Agent():
 
         # ---------------------------- update actor ---------------------------- #
         # Compute actor loss
-        actions_pred = self.actor_local(states)
+        actions_pred = self.actor_local(states[agent_number])
         # Construct action prediction vector relative to each agent
         if agent_number == 0:
             actions_pred = torch.cat((actions_pred, actions[:,2:]), dim=1)
         else:
             actions_pred = torch.cat((actions[:,:2], actions_pred), dim=1)
         # Compute actor loss
-        actor_loss = -self.critic_local(states, actions_pred).mean()
+        actor_loss = -self.critic_local(states[agent_number], actions_pred).mean()
         # Minimize the loss
         self.actor_optimizer.zero_grad()
         actor_loss.backward()
