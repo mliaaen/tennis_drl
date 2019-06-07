@@ -2,7 +2,7 @@
 # and performs training loop
 
 from collections import deque
-from maddpg_agent import Agent
+from maddpg_agent import MADDPG
 import numpy as np
 import os
 import time
@@ -21,16 +21,16 @@ CONSEC_EPISODES = 100
 PRINT_EVERY = 10
 ADD_NOISE = True
 
+global agents
 
-
-class Runner():
+class MADDPG_Runner():
     
     def __init__(self, config):
         """
 
         :rtype: object
         """
-        super(Runner, self).__init__()
+        super(MADDPG_Runner, self).__init__()
         self.n_episodes = config.get("n_episodes", N_EPISODES)
         self.solved_score = config.get("solved_score", SOLVED_SCORE)
         self.conseq_episodes = config.get("conseq_episodes", CONSEC_EPISODES)
@@ -40,8 +40,8 @@ class Runner():
 
         self.agents = []
 
-        self.env = UnityEnvironment(file_name="Tennis_Linux/Tennis.x86_64")
-        #self.env = UnityEnvironment(file_name="Tennis.app")
+        #self.env = UnityEnvironment(file_name="Tennis_Linux/Tennis.x86_64")
+        self.env = UnityEnvironment(file_name="Tennis.app")
 
         # get the default brain
         self.brain_name = self.env.brain_names[0]
@@ -62,12 +62,8 @@ class Runner():
         self.state_size = states.shape[1]
         print('There are {} agents. Each observes a state with length: {}'.format(states.shape[0], self.state_size))
         print('The state for the first agent looks like: \n{}\n'.format(states[0]))
+        self.MADDPG_obj = MADDPG(state_size=self.state_size, action_size=self.action_size, num_agents=self.num_agents, config=config)
 
-
-    def __del__(self):
-        #self.env.reset(train_mode=True)[self.brain_name]
-        #self.env.close()
-        print("cleaning up run-environment getting ready for next round")
 
     def seeding(self):
         np.random.seed(self.seed)
@@ -95,9 +91,10 @@ class Runner():
 
     def training_loop(self, config):
 
-        # start environment
+        # start environme<<nt
         self.n_episodes = config.get("n_episodes", N_EPISODES)
         self.seed = config.get("seed", 1)
+        t_max = 200
 
         # initialize scoring
         scores_window = deque(maxlen=CONSEC_EPISODES)
@@ -108,77 +105,83 @@ class Runner():
         already_solved = False
         self.seeding()
 
-        # initialize agents
-        self.agents = [Agent(self.state_size, self.action_size, 1, self.seed, config=config) for i in range(self.num_agents)]
-        print (self.agents)
 
-        for i_episode in range(1, self.n_episodes+1):
-            env_info = self.env.reset(train_mode=True)[self.brain_name]      # reset the environment
-            #states = np.reshape(env_info.vector_observations, (1,self.num_agents*self.state_size)) # flatten states
-            states = env_info.vector_observations
-            #print("joho",states, self.num_agents, self.state_size)
-            self.reset_agents()
-            scores = np.zeros(self.num_agents)
-            while True:
-                actions = self.get_actions(states, ADD_NOISE)           # choose agent actions and flatten them
-                env_info = self.env.step(actions)[self.brain_name]           # send both agents' actions to the environment
-                #next_states = np.reshape(env_info.vector_observations, (1, self.num_agents*self.state_size)) # flatten next states
-                next_states = env_info.vector_observations
-                rewards = env_info.rewards                         # get rewards
-                done = env_info.local_done                         # see if the episode finished
-                print("learning next_states", next_states)
-                self.learning_step(states, actions, rewards, next_states, done)  # perform the learning step
-                scores += np.max(rewards)                          # update scores with best reward
-                states = next_states                               # roll over states to next time step
-                #print(actions)
-                if np.any(done): # exit loop if episode finished
-                    #print ("done")
+        for i_episode in range(1, self.n_episodes + 1):
+            env_info = self.env.reset(train_mode=True)[self.brain_name]  # reset the environment
+            states = env_info.vector_observations  # get the current states (for all agents)
+            #MADDPG_obj.reset()  # reset the MADDPG_obj OU Noise
+            scores = np.zeros(self.num_agents)  # initialize the score (for each agent in MADDPG)
+            num_steps = 0
+            for _ in range(t_max):
+                actions = self.MADDPG_obj.act(states, i_episode)
+                env_info = self.env.step(actions)[self.brain_name]  # send all actions to the environment
+                next_states = env_info.vector_observations  # get next state (for each agent in MADDPG)
+                rewards = env_info.rewards  # get rewards (for each agent in MADDPG)
+                dones = env_info.local_done  # see if episode finished
+                scores += rewards  # update the score (for each agent in MADDPG)
+                self.MADDPG_obj.step(i_episode, states, actions, rewards, next_states,
+                                dones)  # train the MADDPG_obj
+                states = next_states  # roll over states to next time step
+                num_steps += 1
+                if np.any(dones):  # exit loop if episode finished
                     break
+                # print('Total score (averaged over agents) this episode: {}'.format(np.mean(score)))
 
-            ep_best_score = np.max(scores)                         # record best score for episode
-            scores_window.append(ep_best_score)                    # add score to recent scores
-            scores_all.append(ep_best_score)                       # add score to histor of all scores
-            moving_average.append(np.mean(scores_window))          # recalculate moving average
+            scores_deque.append(np.max(scores))
+            scores_list.append(np.max(scores))
+            scores_list_100_avg.append(np.mean(scores_deque))
 
-            # save best score
-            if ep_best_score > best_score:
-                best_score = ep_best_score
-                best_episode = i_episode
+            # print('\rEpisode {}\tAverage Score: {:.2f}\tScore: {}'.format(i_episode, np.mean(scores_deque), score), end="")
+            print('Episode {}\tAverage Score: {:.2f}\tCurrent Score: {}'.format(i_episode, np.mean(scores_deque),
+                                                                                np.max(scores)))
+            print('Noise Scaling: {}, Memory size: {} and Num Steps: {}'.format(MADDPG_obj.maddpg_agents[0].noise_scale,
+                                                                                len(MADDPG_obj.memory), num_steps))
 
-            # print results
-            if i_episode % PRINT_EVERY == 0:
-                print('Episodes {:0>4d}-{:0>4d}\tMax Reward: {:.3f}\tMoving Average: {:.3f}'.format(
-                    i_episode-PRINT_EVERY, i_episode, np.max(scores_all[-PRINT_EVERY:]), moving_average[-1]))
+            if i_episode % 500 == 0:
+                MADDPG_obj.save_maddpg()
+                print('Saved Model: Episode {}\tAverage Score: {:.2f}'.format(i_episode, np.mean(scores_deque)))
+
+            if np.mean(scores_deque) > 1.0 and len(scores_deque) >= 100:
+                MADDPG_obj.save_maddpg()
+                print('Saved Model: Episode {}\tAverage Score: {:.2f}'.format(i_episode, np.mean(scores_deque)))
+                break
+
+        return scores_list, scores_list_100_avg
+
+ #           # print results
+ #           if i_episode % PRINT_EVERY == 0:
+ #               print('Episodes {:0>4d}-{:0>4d}\tMax Reward: {:.3f}\tMoving Average: {:.3f}'.format(
+ #                   i_episode-PRINT_EVERY, i_episode, np.max(scores_all[-PRINT_EVERY:]), moving_average[-1]))
 
             # determine if environment is solved and keep best performing models
-            if moving_average[-1] >= SOLVED_SCORE:
-                if not already_solved:
-                    print('<-- Environment solved in {:d} episodes! \
-                    \n<-- Moving Average: {:.3f} over past {:d} episodes'.format(
-                        i_episode-CONSEC_EPISODES, moving_average[-1], CONSEC_EPISODES))
-                    already_solved = True
-                    # save weights
-                    torch.save(self.agents[0].actor_local.state_dict(), 'models/checkpoint_actor_0.pth')
-                    torch.save(self.agents[0].critic_local.state_dict(), 'models/checkpoint_critic_0.pth')
-                    torch.save(self.agents[1].actor_local.state_dict(), 'models/checkpoint_actor_1.pth')
-                    torch.save(self.agents[1].critic_local.state_dict(), 'models/checkpoint_critic_1.pth')
-                elif ep_best_score >= best_score:
-                    print('<-- Best episode so far!\
-                    \nEpisode {:0>4d}\tMax Reward: {:.3f}\tMoving Average: {:.3f}'.format(
-                    i_episode, ep_best_score, moving_average[-1]))
-                    # save weights
-                    torch.save(self.agents[0].actor_local.state_dict(), 'models/checkpoint_actor_0.pth')
-                    torch.save(self.agents[0].critic_local.state_dict(), 'models/checkpoint_critic_0.pth')
-                    torch.save(self.agents[1].actor_local.state_dict(), 'models/checkpoint_actor_1.pth')
-                    torch.save(self.agents[1].critic_local.state_dict(), 'models/checkpoint_critic_1.pth')
-                # stop training if model stops improving
-                elif (i_episode-best_episode) >= 200:
-                    print('<-- Training stopped. Best score not matched or exceeded for 200 episodes')
-                    break
-                else:
-                    continue
-        #self.env.close()
-        return best_score
+#            if moving_average[-1] >= SOLVED_SCORE:
+#                if not already_solved:
+##                    print('<-- Environment solved in {:d} episodes! \
+ #                   \n<-- Moving Average: {:.3f} over past {:d} episodes'.format(
+#                        i_episode-CONSEC_EPISODES, moving_average[-1], CONSEC_EPISODES))
+#                    already_solved = True
+#                    # save weights
+#                    torch.save(self.agents[0].actor_local.state_dict(), 'models/checkpoint_actor_0.pth')
+#                    torch.save(self.agents[0].critic_local.state_dict(), 'models/checkpoint_critic_0.pth')
+#                    torch.save(self.agents[1].actor_local.state_dict(), 'models/checkpoint_actor_1.pth')
+#                    torch.save(self.agents[1].critic_local.state_dict(), 'models/checkpoint_critic_1.pth')
+#                elif ep_best_score >= best_score:
+#                    print('<-- Best episode so far!\
+#                    \nEpisode {:0>4d}\tMax Reward: {:.3f}\tMoving Average: {:.3f}'.format(
+#                    i_episode, ep_best_score, moving_average[-1]))
+##                    # save weights
+#                    torch.save(self.agents[0].actor_local.state_dict(), 'models/checkpoint_actor_0.pth')
+#                    torch.save(self.agents[0].critic_local.state_dict(), 'models/checkpoint_critic_0.pth')
+#                    torch.save(self.agents[1].actor_local.state_dict(), 'models/checkpoint_actor_1.pth')
+#                    torch.save(self.agents[1].critic_local.state_dict(), 'models/checkpoint_critic_1.pth')
+#                # stop training if model stops improving
+#                elif (i_episode-best_episode) >= 200:
+#                    print('<-- Training stopped. Best score not matched or exceeded for 200 episodes')
+#                    break
+#                else:
+#                    continue
+#        #self.env.close()
+#        return best_score
 
 
 ## Helper functions
@@ -239,7 +242,7 @@ scores = []
 good_ones = []
 
 # runner with default settings
-runner = Runner({})
+runner = MADDPG_Runner({})
 
 field_list.append("score")
 
@@ -255,14 +258,14 @@ with open('scan_report.csv', 'w', newline='') as csvfile:
             continue
 
         print("Now running with config:", config)
-        best_score = runner.training_loop(config)
-        scores.append(best_score)
+        scores_list, scores_list_100_avg = runner.training_loop(config)
+        #scores.append(best_score)
         report_line = copy.copy(config)
-        report_line["score"] = best_score
+        #report_line["score"] = best_score
         writer.writerow(report_line)
 
         time.sleep(4)
     print (scores)
 
-i = scores.index(max(scores))
-print ("best config %i %s"%(i, hyper_configs[i]))
+#i = scores.index(max(scores))
+#print ("best config %i %s"%(i, hyper_configs[i]))
