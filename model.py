@@ -49,12 +49,12 @@ class Actor(nn.Module):
         """
 
         if self.use_batch_norm:
-            x = F.relu(self.fc1(self.bn1(state)))
-            x = F.relu(self.fc2(self.bn2(x)))
+            x = F.elu(self.fc1(self.bn1(state)))
+            x = F.elu(self.fc2(self.bn2(x)))
             return torch.tanh(self.fc3(self.bn3(x)))
         else:
-            x = F.relu(self.fc1(state))
-            x = F.relu(self.fc2(x))
+            x = F.elu(self.fc1(state))
+            x = F.elu(self.fc2(x))
             return torch.tanh(self.fc3(x))
 
     def reset_parameters(self):
@@ -87,8 +87,8 @@ class Critic(nn.Module):
         use_bias = not use_batch_norm
 
         self.use_batch_norm = use_batch_norm
-        self.fc1 = nn.Linear(state_size * 2, fc1_units, bias=use_bias)
-        self.fc2 = nn.Linear(fc1_units + action_size * 2, fc2_units)
+        self.fc1 = nn.Linear(state_size, fc1_units, bias=use_bias)
+        self.fc2 = nn.Linear(fc1_units + action_size, fc2_units)
         self.fc3 = nn.Linear(fc2_units, 1)
         self.reset_parameters()
 
@@ -100,13 +100,12 @@ class Critic(nn.Module):
         """
 
         if self.use_batch_norm:
-            x = F.relu(self.fc1(self.bn1(state)))
+            x = F.elu(self.fc1(self.bn1(state)))
         else:
-            x = F.relu(self.fc1(state))
+            x = F.elu(self.fc1(state))
 
         x = torch.cat((x, action), dim=1)
-        #print(x.size())
-        x = F.relu(self.fc2(x))
+        x = F.elu(self.fc2(x))
         x = self.fc3(x)
         return x
 
