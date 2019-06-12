@@ -1,0 +1,17 @@
+{ "n_episodes" :[2500],
+  "seeds":[1,2],
+  "learn_every": [5],
+  "hidden_units": [128],
+  "lr_critic":[1e-3],
+  "lr_actor":[1e-4],
+  "weight_deacy":[1],
+  "learn_num":[5],
+  "gamma":[0.99],
+  "tau":[7e-2],
+  "ou_sigma":[0.3],
+  "ou_theta":[0.15],
+  "eps_start":[1.0],
+  "eps_ep_end":[400],
+  "eps_final":[0.1],
+  "batch_size": [128]
+}

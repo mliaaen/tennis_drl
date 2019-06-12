@@ -14,6 +14,7 @@ import json
 import csv
 import copy
 import time
+import argparse
 
 
 # some globals we dont want to change
@@ -148,108 +149,77 @@ class MADDPG_Runner():
         return scores_list, scores_list_100_avg, i_episode
 
 
-## Helper functions
 
-def get_hyperparams(**args) -> object:
-    import itertools
-    param_list = []
-    field_list = []
-    for k, v in args.items():
-        #print("%s = %s" % (k, v))
-        param_list.append(v)
-        field_list.append(k)
-
-    config_list = []
-    for i in itertools.product(*param_list):
-        config_list.append(dict(zip(field_list, i)))
-
-    return field_list, config_list
-
-
-def plot_scores(scores, scores_avg, annotation):
+def plot_scores(scores, scores_avg, annotation, output=""):
     fig = plt.figure()
     ax = fig.add_subplot(111)
     plt.plot(np.arange(1, len(scores_list) + 1), scores_list)
     plt.plot(np.arange(1, len(scores_list_100_avg) + 1), scores_list_100_avg)
     plt.ylabel('Score')
     plt.xlabel('Episode #')
-    fig.savefig('plot_{}.png'.format(annotation))
+    fig.savefig(os.path.join(output,'plot_{}.png'.format(annotation)))
 
 
-############## running hyper parameter searching ######################
+#
+def train(configs, output, ids):
+
+    print("Nmber of configs: %d"%len(configs))
+
+    scores = []
+
+    with open(os.path.join(output,'scan_report.csv'), 'w', newline='') as csvfile:
+
+        fieldnames = list(configs[0].keys())
+        fieldnames = fieldnames + ["best_score", "avg_score", "solved", "time"]
+        print(fieldnames, ids)
+        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+
+        writer.writeheader()
+        runner = MADDPG_Runner(configs[0])
+        for cnf_no, config in enumerate(configs):
+
+            if not ids and str(cnf_no) not in ids:
+                print("skipping", cnf_no)
+                continue
+
+            print("Now running with config:", config)
+            start_time = time.time()
+            runner.config(config)
+            scores_list, scores_list_100_avg, episode = runner.training_loop()
+            time_passed = time.time() - start_time
+            best_score = max(scores_list)
+            avg_100_score = max(scores_list_100_avg)
+            scores.append(best_score)
+            report_line = copy.copy(config)
+            report_line["best_score"] = max(scores_list)
+            report_line["avg_score"] = max(scores_list_100_avg)
+            report_line["solved"] = episode
+            report_line["time"] = time_passed
+            writer.writerow(report_line)
+            with open(os.path.join(output, "scores_file_{}.json".format(cnf_no)), "w") as write_file:
+                json.dump((scores_list, scores_list_100_avg), write_file)
+
+            plot_scores(scores_list, scores_list_100_avg, annotation=cnf_no)
+            time.sleep(4)
+        print (scores)
 
 
-parameters_best = {"n_episodes" :[2500],
-              "seeds":[1],
-              " lr_critic":[1e-3],
-              "lr_actor":[1e-4],
-              "weight_deacy":[1],
-              "learn_num":[5],
-              "gamma":[0.99],
-              "tau":[7e-2],
-              "ou_sigma":[0.3],
-              "ou_theta":[0.15],
-              "eps_start":[1.0],
-              "eps_ep_end":[400],
-              "eps_final":[0.1],
-              "batch_size": [96, 128, 512],
-
-              "hidden_units": [64, 96, 128]
-              }
 
 
-parameters = {"n_episodes" :[2000],
-            "seeds":[1],
-            "lr_critic":[1e-3, 1e-4],
-            "lr_actor":[1e-3, 1e-4],
-            "learn_every": [5],
-            "hidden_units": [128]
-              }
+if __name__ == '__main__':
 
-field_list, hyper_configs = get_hyperparams(**parameters_best)
+    description = """
+Running the training loop
+"""
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--configfile', action="store", dest="configfile", default="The json formatted configs file (see gen_configs.py)")
+    parser.add_argument('--output', action="store", dest="output_dir", default="", help="Folder where the results are stored")
+    parser.add_argument('--ids', action="append", dest="ids", default="[]", help="Run selected config, default is all")
 
-print("Hyper parameters in config", field_list)
-print("Nmber of configs: %d"%len(hyper_configs))
-
-
-
-scores = []
-good_ones = []
-
-# runner with default settings
-
-
-with open('scan_report.csv', 'w', newline='') as csvfile:
-
-    writer = csv.DictWriter(csvfile, fieldnames=field_list+["best_score", "avg_score", "solved", "time"])
-
-    writer.writeheader()
-    runner = MADDPG_Runner(hyper_configs[0])
-    for cnf_no, config in enumerate(hyper_configs):
-
-        if cnf_no not in good_ones and len(good_ones) > 0:
-            continue
-
-        print("Now running with config:", config)
-        start_time = time.time()
-        runner.config(config)
-        scores_list, scores_list_100_avg, episode = runner.training_loop()
-        time_passed = time.time() - start_time
-        best_score = max(scores_list)
-        avg_100_score = max(scores_list_100_avg)
-        scores.append(best_score)
-        report_line = copy.copy(config)
-        report_line["best_score"] = max(scores_list)
-        report_line["avg_score"] = max(scores_list_100_avg)
-        report_line["solved"] = episode
-        report_line["time"] = time_passed
-        writer.writerow(report_line)
-        with open("scores_file_{}.json".format(cnf_no), "w") as write_file:
-            json.dump((scores_list, scores_list_100_avg), write_file)
-
-        plot_scores(scores_list, scores_list_100_avg, annotation=cnf_no)
-        time.sleep(4)
-    print (scores)
-
-#i = scores.index(max(scores))
-#print ("best config %i %s"%(i, hyper_configs[i]))
+    args = parser.parse_args()
+    print(args)
+    with open(args.configfile,"r") as f:
+        configs = json.load(f)
+        if not os.path.exists(args.output_dir):
+            os.mkdir(args.output_dir)
+        train (configs, args.output_dir, args.ids)
