@@ -132,8 +132,8 @@ class MADDPG_Runner():
                                                                                 np.max(scores)))
                 print('Noise Scaling: {}, Memory size: {} and Num Steps: {}'.format(self.MADDPG_obj.maddpg_agents[0].noise_scale,
                                                                                 len(self.MADDPG_obj.memory), num_steps))
-                print("last 10", scores_list[-10:])
-                print("last actions", actions)
+                #print("last 10", scores_list[-10:])
+                #print("last actions", actions)
 
             if i_episode % 500 == 0:
                 self.MADDPG_obj.save_maddpg()
@@ -161,9 +161,11 @@ def plot_scores(scores, scores_avg, annotation, output=""):
 
 
 #
-def train(configs, output, ids):
+def train(configs, output, ids=[]):
 
     print("Nmber of configs: %d"%len(configs))
+    if not os.path.exists(output):
+        os.mkdir(output)
 
     scores = []
 
@@ -171,7 +173,7 @@ def train(configs, output, ids):
 
         fieldnames = list(configs[0].keys())
         fieldnames = fieldnames + ["best_score", "avg_score", "solved", "time"]
-        print(fieldnames, ids)
+        #print(fieldnames, ids)
         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
 
         writer.writeheader()
@@ -220,6 +222,4 @@ Running the training loop
     print(args)
     with open(args.configfile,"r") as f:
         configs = json.load(f)
-        if not os.path.exists(args.output_dir):
-            os.mkdir(args.output_dir)
         train (configs, args.output_dir, args.ids)

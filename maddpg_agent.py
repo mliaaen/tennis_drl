@@ -228,8 +228,8 @@ class DDPG(object):
         self.actor_local.train()
 
         # add noise
-        actions += self.noise_scale * self.add_noise2()  # works much better than OU Noise process
-        #actions += self.noise_scale*self.noise.sample()
+        actions += self.noise_scale * self.add_noise2()  # uniform
+        #actions += self.noise_scale*self.noise.sample() # ou
 
         return np.clip(actions, -1, 1)
 
@@ -295,7 +295,7 @@ class DDPG(object):
             target_param.data.copy_(source_param.data)
 
     def add_noise2(self):
-        noise = 0.5 * np.random.randn(1,
+        noise = 0.3 * np.random.randn(1,
                                       self.action_size)  # sigma of 0.5 as sigma of 1 will have alot of actions just clipped
         return noise
 
