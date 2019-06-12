@@ -45,3 +45,26 @@ Follow the instructions in `Tennis.ipynb` to see how this environment behaves.
 The main.py contains the trainig code for this agent. Here you can select the parameters to use and start trining and plotting.
 See the report.md for the report.
 
+#### Training - generate configurations and train
+
+Example: python gen_params.py --scenrios template.json --output myjobs.json 
+
+This generates a json file with the configurations that shall be run.
+
+Example: python train.py --config myjobs.json --output myresults
+
+Will run all the congigurations and store the results in myresults folder. A summary
+is found in scan_results.csv. Here you can find all the results and run times.
+
+A run example is found here Tennis.ipynb
+
+
+#### Running - using the trained agent
+
+Check out the Tennis_Play.ipynb
+
+The  last successful trained parameter set is store in models/checkpoint_actor_local_0/1.pth and
+models/checkpoint_critic_local_0/1.pth
+
+
+

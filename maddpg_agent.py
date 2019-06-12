@@ -68,7 +68,7 @@ class MADDPG(object):
         # for stepping maddpg
         """Save experience in replay memory, and use random sample from buffer to learn."""
         # index 0 is for agent 0 and index 1 is for agent 1
-        #print("step next_states", next_states[0])
+
         full_states = np.reshape(states, newshape=(-1))
         full_next_states = np.reshape(next_states, newshape=(-1))
 
@@ -164,9 +164,9 @@ class DDPG(object):
         """
         self.state_size = state_size
         self.seed = config.get("seed", 1)
-        self.batch_norm = False
+        self.batch_norm = True
         self.action_size = action_size
-        self.batch_norm = False
+
 
         self.config(config)
 

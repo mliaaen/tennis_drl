@@ -11,14 +11,16 @@ this problem using DDPG which uses all input and actions into training one (big)
 both rackets, but this is not a multiagent solution.
 
 The simplest approach was to build on the the DDPG model and
-extend it to the MADDPG case. There are two agents (players) that needs to be trained and the during
+extend it to the MADDPG case. There are two agents (players) that needs to be trained and during
 training the agents will use the full oberservation space from both agents and the actions of the other
 agents (here just one, but could be more) to train the critic network. The actor network will only 
 use it own observation space as input. 
 
-DDPG is an off-policy method that utilizes a replay buffer  for the training. This way it is possible 
-to get stable training. When running the agent in real play only the actor is used to select the 
-actions (two continious values) controlling the racket.
+DDPG is an off-policy method that utilizes a replay buffer for the training of the neural networks. Random sampling (a batch) from 
+the replay buffer greatly improves the stability of the learning.
+
+When running the agent in real play only the actor is used to select the 
+actions (two continious values) controlling the racket. A tennis match with trained agents is found in Tennis_Play.ipynb
 
 Both actor and critic networks uses both local and target networks that trains slowly using soft updates 
 from the local to the target network in order to stabilize training.
@@ -47,6 +49,9 @@ for the critic was lower or equal to the actor learning rate.
 I used two layer equal hidden layers in the nueral networks. I tried with 64, 96, 128 and 256 nodes. Using a
 the bigger network only leady slower learning times and now performnace gains.
 
+## Buffer size
+
+The selected buffer size is 1 000 000 entries
 
 ## Batch size
 
@@ -54,11 +59,22 @@ I tried batch sizes og 64, 128, 256 and 512, but it didnt make much difference i
 It seems to be an interesting correlation between Hidden layer size and batch size. The smallest batch size that worked was 128 
 with a layer size of 64. 
 
+## Batch normalization
+
+The networks seems to train regardless regualarization or not, but the normalization slows down the training. 
+Anyway it seems that the results are more predictable and worth the extra cpu. I guess the Tennis enviroment is "nice" to 
+the training process from the beginning. 
+
 ## Seeding
 
 I wanted to test out how different random seeds affected the training and it turned out that changing the 
 random seed had big effect on the training time, but I did not see any runs where it did not train within my 2500 episodes
-limit.
+limit. 
+
+It is difficult to get predictable results from the two same run configurations. It is also 
+impossible to predict if the network trains or not even if the parameters are "sensible". It was
+very time consuming to scan the hyper parameter space I chose to investigate. It seems to be important to keep the good models
+and dont expect that you can easiliy recreate them by running the same config one more time.
 
 ## Exploration
 
@@ -94,7 +110,7 @@ are found in maddpg_agent.py
         "eps_start": 1.0,
         "eps_ep_end": 400,
         "eps_final": 0.1,
-        "batch_size": 128
+        "batch_size": 256
   }
 
 ![Alt text](results/plot_3.png?raw=true "Training results best configuration")
@@ -108,4 +124,4 @@ DDPG and I lost the track.
  * Use Prioritized Experience Replay to better utilize the replay buffer with good samples (that has effect on training).
 
  * There are other methods than policy gradient that could be used for solving this problem. One is Multi Agent Proximal 
-Policy Optimization (MAPPO) and A3C.
+Policy Optimization (MAPPO) and A3C.``

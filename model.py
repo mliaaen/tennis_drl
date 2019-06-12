@@ -81,7 +81,7 @@ class Critic(nn.Module):
             torch.manual_seed(seed)
 
         if use_batch_norm:
-            self.bn1 = nn.BatchNorm1d(state_size*2)
+            self.bn1 = nn.BatchNorm1d(state_size)
 
         # batch norm has bias included, disable linear layer bias
         use_bias = not use_batch_norm

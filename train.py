@@ -8,6 +8,9 @@ import os
 import time
 import torch
 from unityagents import UnityEnvironment
+
+import matplotlib
+matplotlib.use('PS')
 import matplotlib.pyplot as plt
 import json
 
@@ -28,7 +31,7 @@ ADD_NOISE = True
 
 class MADDPG_Runner():
     
-    def __init__(self, config):
+    def __init__(self, env, config):
         """
 
         :rtype: object
@@ -37,8 +40,8 @@ class MADDPG_Runner():
 
         self.agents = []
 
-        self.env = UnityEnvironment(file_name="Tennis_Linux/Tennis.x86_64")
-        #self.env = UnityEnvironment(file_name="Tennis.app")
+        self.env = env
+
 
         # get the default brain
         self.brain_name = self.env.brain_names[0]
@@ -161,7 +164,7 @@ def plot_scores(scores, scores_avg, annotation, output=""):
 
 
 #
-def train(configs, output, ids=[]):
+def train(env, configs, output, ids=[]):
 
     print("Nmber of configs: %d"%len(configs))
     if not os.path.exists(output):
@@ -177,7 +180,7 @@ def train(configs, output, ids=[]):
         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
 
         writer.writeheader()
-        runner = MADDPG_Runner(configs[0])
+        runner = MADDPG_Runner(env, configs[0])
         for cnf_no, config in enumerate(configs):
 
             if not ids and str(cnf_no) not in ids:
@@ -220,6 +223,10 @@ Running the training loop
 
     args = parser.parse_args()
     print(args)
+    #print (os.platform)
+    #env = UnityEnvironment(file_name="Tennis_Linux/Tennis.x86_64")
+    env = UnityEnvironment(file_name="Tennis.app")
+
     with open(args.configfile,"r") as f:
         configs = json.load(f)
-        train (configs, args.output_dir, args.ids)
+        train (env, configs, args.output_dir, args.ids)
