@@ -153,8 +153,8 @@ class MADDPG_Runner():
 def plot_scores(scores, scores_avg, annotation, output=""):
     fig = plt.figure()
     ax = fig.add_subplot(111)
-    plt.plot(np.arange(1, len(scores_list) + 1), scores_list)
-    plt.plot(np.arange(1, len(scores_list_100_avg) + 1), scores_list_100_avg)
+    plt.plot(np.arange(1, len(scores) + 1), scores)
+    plt.plot(np.arange(1, len(scores_avg) + 1), scores_avg)
     plt.ylabel('Score')
     plt.xlabel('Episode #')
     fig.savefig(os.path.join(output,'plot_{}.png'.format(annotation)))
@@ -216,7 +216,7 @@ Running the training loop
     parser = argparse.ArgumentParser()
     parser.add_argument('--configfile', action="store", dest="configfile", default="The json formatted configs file (see gen_configs.py)")
     parser.add_argument('--output', action="store", dest="output_dir", default="", help="Folder where the results are stored")
-    parser.add_argument('--ids', action="append", dest="ids", default="[]", help="Run selected config, default is all")
+    parser.add_argument('--ids', action="append", dest="ids", default=[], help="Run selected config, default is all")
 
     args = parser.parse_args()
     print(args)

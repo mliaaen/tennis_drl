@@ -55,9 +55,9 @@ class MADDPG(object):
         self.weight_decay = config.get("weight_decay", WEIGHT_DECAY)
         #self.learn_every = config.get("learn_every", LEARN_EVERY)
         self.learn_num = config.get("learn_num", LEARN_NUM)
-        self.gamma = config.get("gamma", GAMMA)
+        self.eps_ep_end = config.get("eps_ep_end", EPS_EP_END)
         self.episodes_before_training = config.get("episodes_before_training", EPISODES_BEFORE_TRAINING)
-
+        self.gamma = config.get("gamma", GAMMA)
 
 
     def reset(self):
@@ -299,6 +299,8 @@ class DDPG(object):
                                       self.action_size)  # sigma of 0.5 as sigma of 1 will have alot of actions just clipped
         return noise
 
+    def reset(self):
+        pass
 
 
 class OUNoise:
