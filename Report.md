@@ -112,6 +112,7 @@ are found in maddpg_agent.py
         "eps_final": 0.1,
         "batch_size": 256
   }
+### Plot of rewards
 
 ![Alt text](results/plot_3.png?raw=true "Training results best configuration")
 
